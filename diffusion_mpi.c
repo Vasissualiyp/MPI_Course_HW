@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
     int step, i;
     float time;
     float dt, dx;
-    float error;
+    float l_error, g_error;
 
 	// Set up MPI
 	MPI_Init(&argc, &argv);
@@ -53,8 +53,6 @@ int main(int argc, char **argv) {
      * theory doesn't need ghost cells, but we include it for simplicity
      */
 
-	// TODO: The array sizes should include boundaries from the other arrays, except for 
-	// 1st/last ranks!
 	// Setup local arraysizes, so that they span the whole domain
 	int l_arraysize = (totpoints + 2) / size;
 	int arraysize_diff = totpoints + 2 - l_arraysize * size;
@@ -66,6 +64,17 @@ int main(int argc, char **argv) {
 	int l_starting_idx = rank * l_arraysize;
 	// Displace the index for later processes in case of unequal distribution of sizes
 	if (rank >= arraysize_diff) l_starting_idx += arraysize_diff;
+
+	// Add padding: 1 cells from each of neighbouring cells for d/dx calculations.
+	if (rank != 0 && rank != size-1) {
+		l_arraysize += 2; // For processes of neither first nor last rank
+	} else if ( size != 0 ) {
+		l_arraysize += 1; // For first or last rank processes when run on several tasks
+	}
+	
+	if (rank != 0) {
+	    l_starting_idx -= 1; // Adjust starting index to include padding
+	}
 
     theory = (float *)malloc((l_arraysize)*sizeof(float));
     x      = (float *)malloc((l_arraysize)*sizeof(float));
@@ -112,17 +121,19 @@ int main(int argc, char **argv) {
 		if (rank == size - 1) {
             temperature[old][l_arraysize - 1] = fixedrighttemp;
 		}
+		MPI_Barrier(MPI_COMM_WORLD);
 
-	    // TODO: The array sizes should include boundaries from the other arrays, except for 
-	    // 1st/last ranks!
-		if (rank != 0) {
-			MPI_Send(&temperature[old][0], 1, MPI_INT, rank-1, 0, MPI_COMM_WORLD);
-		}
-		if (rank != size - 1) {
-			MPI_Recv(&temperature[old][l_arraysize], 1, MPI_INT, rank+1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-			MPI_Send(&temperature[old][l_arraysize], 1, MPI_INT, rank+1, 0, MPI_COMM_WORLD);
-			MPI_Recv(&temperature[old][0], 1, MPI_INT, rank-1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-		}
+        // Exchange ghost cells
+        if (rank > 0) {
+            MPI_Isendrecv(&temperature[old][1], 1, MPI_FLOAT, rank-1, 0,
+                         &temperature[old][0], 1, MPI_FLOAT, rank-1, 1,
+                         MPI_COMM_WORLD, 0);
+        }
+        if (rank < size-1) {
+            MPI_Isendrecv(&temperature[old][l_arraysize-2], 1, MPI_FLOAT, rank+1, 1,
+                         &temperature[old][l_arraysize-1], 1, MPI_FLOAT, rank+1, 0,
+                         MPI_COMM_WORLD, 0);
+        }
 
         for (i=1; i<l_arraysize - 1; i++) {
             temperature[new][i] = temperature[old][i] + dt*kappa/(dx*dx) *
@@ -157,18 +168,21 @@ int main(int argc, char **argv) {
             cpgebuf();
         }
 #endif
-        error = 0.;
-        for (i=1;i<totpoints+1;i++) {
-            error += (theory[i] - temperature[new][i])*(theory[i] - temperature[new][i]);
+		// Error calculation
+        l_error = 0.;
+        for (i=1;i<l_arraysize-1;i++) {
+            l_error += (theory[i] - temperature[new][i])*(theory[i] - temperature[new][i]);
         }
-        error = sqrt(error);
+        l_error = sqrt(l_error);
+        MPI_Reduce(&l_error, &g_error, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
 
 		if (rank == 0) {
-		    printf("Step = %d, Time = %g, Error = %g\n", step, time, error);
+		    printf("Step = %d, Time = %g, Error = %g\n", step, time, g_error);
 		}
 
         old = new;
         new = 1 - old;
+		MPI_Barrier(MPI_COMM_WORLD);
     }
 
 
@@ -176,11 +190,12 @@ int main(int argc, char **argv) {
      * free data
      */
 
-    free(temperature[1]);
-    free(temperature[0]);
-    free(temperature);
-    free(x);
-    free(theory);
+	free(temperature[1]);
+	free(temperature[0]);
+	free(temperature);
+	free(x);
+	free(theory);
+	MPI_Barrier(MPI_COMM_WORLD);
 
 	MPI_Finalize();
 
