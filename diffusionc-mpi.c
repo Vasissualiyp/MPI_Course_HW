@@ -125,14 +125,14 @@ int main(int argc, char **argv) {
 
         // Exchange ghost cells
         if (rank > 0) {
-            MPI_Isendrecv(&temperature[old][1], 1, MPI_FLOAT, rank-1, 0,
+            MPI_Sendrecv(&temperature[old][1], 1, MPI_FLOAT, rank-1, 0,
                          &temperature[old][0], 1, MPI_FLOAT, rank-1, 1,
-                         MPI_COMM_WORLD, 0);
+                         MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
         if (rank < size-1) {
-            MPI_Isendrecv(&temperature[old][l_arraysize-2], 1, MPI_FLOAT, rank+1, 1,
+            MPI_Sendrecv(&temperature[old][l_arraysize-2], 1, MPI_FLOAT, rank+1, 1,
                          &temperature[old][l_arraysize-1], 1, MPI_FLOAT, rank+1, 0,
-                         MPI_COMM_WORLD, 0);
+                         MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
 
         for (i=1; i<l_arraysize - 1; i++) {

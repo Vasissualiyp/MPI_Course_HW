@@ -15,19 +15,19 @@ diffusionc: diffusion.c
 #diffusionf-mpi: diffusionf-mpi.f90
 #	${MPIF77} ${FFLAGS} -o $@ $< ${PGPLIBS}
 #
-diffusion_mpi: diffusion_mpi.c 
-	${MPICC} ${CFLAGS} -c -o diffusion_mpi.o $< ${PGPLIBS}
-	${MPIF77} ${FFLAGS} -o $@ diffusion_mpi.o ${USEPGPLOT} ${PGPLIBS}
-#
-#diffusionc-mpi-nonblocking: diffusionc-mpi-nonblocking.c
-#	${MPICC} ${CFLAGS} -c -o diffusionc-mpi-nonblocking.o $< ${PGPLIBS}
-#	${MPIF77} ${FFLAGS} -o $@ diffusionc-mpi-nonblocking.o ${USEPGPLOT} ${PGPLIBS}
-#
+diffusionc-mpi: diffusionc-mpi.c 
+	${MPICC} ${CFLAGS} -c -o diffusionc-mpi.o $< ${PGPLIBS}
+	${MPIF77} ${FFLAGS} -o $@ diffusionc-mpi.o ${USEPGPLOT} ${PGPLIBS}
+
+diffusionc-mpi-nonblocking: diffusionc-mpi-nonblocking.c
+	${MPICC} ${CFLAGS} -c -o diffusionc-mpi-nonblocking.o $< ${PGPLIBS}
+	${MPIF77} ${FFLAGS} -o $@ diffusionc-mpi-nonblocking.o ${USEPGPLOT} ${PGPLIBS}
+
 clean:
 	rm -rf diffusionf
 	rm -rf diffusionc
 	rm -rf diffusionf-mpi
-	rm -rf diffusion_mpi
+	rm -rf diffusionc-mpi
 	rm -rf diffusionc-mpi-nonblocking
 	rm -rf *.o
 	rm -rf *~
