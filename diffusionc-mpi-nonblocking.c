@@ -152,7 +152,7 @@ int main(int argc, char **argv) {
         calc_temperature(temperature, 1, old, new, dt, kappa, dx);
 
 		MPI_Wait(&request2, MPI_STATUS_IGNORE);
-        calc_temperature(temperature, l_arraysize-1, old, new, dt, kappa, dx);
+        calc_temperature(temperature, l_arraysize-2, old, new, dt, kappa, dx);
 
 
         time += dt;
